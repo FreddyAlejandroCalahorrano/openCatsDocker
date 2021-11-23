@@ -1,0 +1,15 @@
+version: '2.1'
+services:
+  open_cats:
+    build: ../
+    ports:
+      - "8080:8080"
+    user: www-data
+#    sysctls:
+#      net.ipv4.ip_unprivileged_port_start: "0"
+    environment:
+      DB_USER: "root"
+      DB_PASSWORD: "test"
+      DB_HOST: "host.docker.internal"
+      DB_NAME: "test"
+      DB_PORT: "3306"

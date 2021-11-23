@@ -1,0 +1,141 @@
+trigger:
+  - "*"
+
+stages:
+  - stage: "Build"
+    displayName: "Build"
+    jobs:
+      - job: "Build"
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - task: DockerInstaller@0
+            inputs:
+              dockerVersion: "17.09.0-ce"
+          - task: Docker@2
+            inputs:
+              containerRegistry: "DevOpsRegistry"
+              repository: "bp/talento/open-cats-frontend-php"
+              command: "buildAndPush"
+              Dockerfile: "**/Dockerfile"
+              tags: |
+                $(Build.BuildId)
+                production
+                latest
+
+  - stage: "Deploy_DEV"
+    dependsOn: "Build"
+    displayName: "Deploy Development"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    variables:
+      - name: FILE_STORAGE_ATTACHMENTS
+        value: fs-talento-attachments-desarrollo
+      - name: FILE_STORAGE_UPLOAD
+        value: fs-talento-upload-desarrollo
+    jobs:
+      - deployment: phpapplication
+        environment:
+          name: Desarrollo
+          resourceType: Kubernetes
+          tags: "aks"
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - download: none
+                - task: replacetokens@3
+                  inputs:
+                    targetFiles: 'k8s.yaml'
+                    encoding: 'auto'
+                    writeBOM: true
+                    actionOnMissing: 'fail'
+                    keepToken: false
+                    tokenPrefix: '#{'
+                    tokenSuffix: '}#'
+                - task: KubernetesManifest@0
+                  inputs:
+                    action: "deploy"
+                    kubernetesServiceConnection: "Desarrollo-k8s-desarrollo-global-talento"
+                    namespace: "talento"
+                    manifests: "k8s.yaml"
+
+  - stage: "Deploy_TEST"
+    dependsOn: "Build"
+    displayName: "Deploy Test"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/test'))
+    variables:
+      - name: FILE_STORAGE_ATTACHMENTS
+        value: fs-talento-attachments-test
+      - name: FILE_STORAGE_UPLOAD
+        value: fs-talento-upload-test
+    jobs:
+      - deployment: phpapplication
+        environment:
+          name: Test
+          resourceType: Kubernetes
+          tags: "aks"
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - download: none
+                - task: replacetokens@3
+                  inputs:
+                    targetFiles: 'k8s.yaml'
+                    encoding: 'auto'
+                    writeBOM: true
+                    actionOnMissing: 'fail'
+                    keepToken: false
+                    tokenPrefix: '#{'
+                    tokenSuffix: '}#'
+                - task: KubernetesManifest@0
+                  inputs:
+                    action: "deploy"
+                    kubernetesServiceConnection: "Test-k8s-test-global-talento"
+                    namespace: "talento"
+                    manifests: "k8s.yaml"
+
+  - stage: "Deploy_PROD"
+    dependsOn: "Build"
+    displayName: "Deploy Prod"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    variables:
+      - name: FILE_STORAGE_ATTACHMENTS
+        value: fs-talento-attachments-produccion
+      - name: FILE_STORAGE_UPLOAD
+        value: fs-talento-upload-produccion
+    jobs:
+      - deployment: phpapplication
+        environment:
+          name: Produccion
+          resourceType: Kubernetes
+          tags: "aks"
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - download: none
+                - task: replacetokens@3
+                  inputs:
+                    targetFiles: 'k8s.yaml'
+                    encoding: 'auto'
+                    writeBOM: true
+                    actionOnMissing: 'fail'
+                    keepToken: false
+                    tokenPrefix: '#{'
+                    tokenSuffix: '}#'
+                - task: KubernetesManifest@0
+                  inputs:
+                    action: "deploy"
+                    kubernetesServiceConnection: "Produccion-k8s-prod-global-talento"
+                    namespace: "talento"
+                    manifests: "k8s.yaml"
